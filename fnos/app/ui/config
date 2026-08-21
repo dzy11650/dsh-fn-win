@@ -1,0 +1,8 @@
+name=DeepSeek Harness
+icon=icon.png
+# `port` MUST be a string and match manifest service_port.
+port=3080
+# fnOS serves the package over HTTPS; the DSH web UI itself is plain HTTP,
+# so the desktop launcher must use http:// — otherwise the icon opens nothing.
+protocol=http
+path=/

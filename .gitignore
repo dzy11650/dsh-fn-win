@@ -1,0 +1,18 @@
+# ---- third-party source (fetched by CI from upstream, not committed) ----
+deepseek-harness-master/
+
+# ---- toolchain / deps / build output ----
+.toolchain/
+node_modules/
+**/node_modules/
+dist/
+packages/win-electron/resources/dsh/
+packages/win-electron/resources/node/
+*.fpk
+*.tar
+*.log
+
+# ---- OS / editor noise ----
+.DS_Store
+Thumbs.db
+*.tmp

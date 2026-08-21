@@ -1,0 +1,13 @@
+#!/bin/bash
+# wizard/install — defines the installation wizard fields.
+# fnOS renders these as a form; answers are exposed (unprefixed) to
+# install_callback as $wizard_<field>.
+#
+# Field names referenced by cmd/install_callback:
+#   wizard_api_key, wizard_service_port, wizard_mode
+
+cat <<'EOF'
+api_key|API Key|string|required|DeepSeek 开放平台申请的 API Key（DSH 无免费额度）
+service_port|服务端口|number|3080|Web UI 监听端口，保持默认即可
+mode|运行模式|enum|standard|standard=标准,minimal=极简,creative=创作
+EOF

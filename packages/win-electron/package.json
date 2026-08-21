@@ -1,0 +1,45 @@
+{
+  "name": "dsh-win-electron",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DeepSeek Harness — Windows desktop shell (Electron tray + bundled Node)",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --x64",
+    "dist:portable": "electron-builder --win --x64 --pd portable"
+  },
+  "build": {
+    "appId": "com.community.dsh",
+    "productName": "DeepSeek Harness",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer/**/*"
+    ],
+    "extraResources": [
+      { "from": "resources/node", "to": "node" },
+      { "from": "resources/dsh", "to": "dsh" }
+    ],
+    "win": {
+      "target": ["portable"],
+      "artifactName": "DeepSeekHarness-${version}-portable.exe"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "perMachine": false
+    }
+  },
+  "dependencies": {
+    "electron-serve": "^2.1.1"
+  },
+  "devDependencies": {
+    "electron": "^37.0.0",
+    "electron-builder": "^25.1.8"
+  }
+}

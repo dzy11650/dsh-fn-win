@@ -1,0 +1,114 @@
+name: build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  DSH_VERSION: 0.1.0-rc.8          # pin the upstream tag/commit (DSH is preview, APIs churn)
+  DSH_REPO: deepseek-ai/deepseek-harness
+  NPM_MIRROR: https://registry.npmmirror.com/
+
+jobs:
+  # --------------------------------------------------------------- docker image
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4        # your release-engineering repo (Dockerfile, fnos/, etc.)
+      - name: Clone upstream DSH source (pinned)
+        run: |
+          git clone --depth 1 --branch ${{ env.DSH_VERSION }} \
+            https://github.com/${{ env.DSH_REPO }} dsh-src
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - name: Build multi-arch image -> local tar
+        uses: docker/build-push-action@v6
+        with:
+          context: ./dsh-src
+          file: ./packages/shared-image/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: dsh-harness:${{ env.DSH_VERSION }}
+          outputs: type=docker,dest=dsh-harness-${{ env.DSH_VERSION }}.tar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsh-image-tar
+          path: dsh-harness-${{ env.DSH_VERSION }}.tar
+
+  # ------------------------------------------------------------------- fnOS fpk
+  fnos:
+    needs: image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: dsh-image-tar }
+      # Embed the image tar inside the fpk so it is fully offline / NAS-local.
+      - name: Embed image tar into fpk bundle
+        run: |
+          mkdir -p fnos/app/docker
+          cp dsh-harness-${{ env.DSH_VERSION }}.tar fnos/app/docker/dsh-harness.tar
+          ls -lh fnos/app/docker
+      - name: Fetch fnpack (extension-less binary)
+        run: |
+          curl -L "${{ secrets.FNPACK_URL || 'https://developer.fnnas.com/fnpack' }}" -o fnpack || true
+          chmod +x fnpack 2>/dev/null || true
+      - name: Build fpk
+        run: |
+          if [ -x ./fnpack ]; then
+            ./fnpack build ./fnos
+          else
+            echo "fnpack unavailable — tarball fallback (rename to .fpk)"
+            tar czf dsh-fnOS.fpk -C fnos .
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsh-fnOS-fpk
+          path: '*.fpk'
+
+  # ----------------------------------------------------------------- windows exe
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Clone upstream DSH source (pinned)
+        run: |
+          git clone --depth 1 --branch ${{ env.DSH_VERSION }} `
+            https://github.com/${{ env.DSH_REPO }} dsh-src
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: dsh-src/pnpm-lock.yaml
+      - name: Apply Windows build patch (drop Linux-only native pkgs)
+        working-directory: dsh-src
+        run: node ../packages/win-electron/patches/apply-win-patch.cjs .
+      - name: pnpm install (npmmirror)
+        working-directory: dsh-src
+        run: pnpm install --config.confirmModulesPurge=false
+      - name: Copy DSH (built node_modules + src) into Electron resources
+        run: |
+          New-Item -ItemType Directory -Force -Path packages/win-electron/resources/dsh | Out-Null
+          robocopy dsh-src packages/win-electron/resources/dsh /E /XD .git /NFL /NDL /NJH /NJS
+      - name: Download standalone Node 24 (win-x64)
+        run: |
+          $v="24.11.1"
+          $url="https://nodejs.org/dist/v$v/node-v$v-win-x64.zip"
+          Invoke-WebRequest $url -OutFile node.zip
+          Expand-Archive node.zip -DestinationPath packages/win-electron/resources/node -Force
+          $inner=Get-ChildItem packages/win-electron/resources/node -Directory | Select-Object -First 1
+          Move-Item "$($inner.FullName)\*" packages/win-electron/resources/node -Force
+          Remove-Item $inner.FullName -Recurse -Force
+          ./packages/win-electron/resources/node/node.exe -v
+      - name: Build portable exe
+        working-directory: packages/win-electron
+        run: |
+          npm install
+          npm run dist:portable
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dsh-windows-exe
+          path: packages/win-electron/dist/*.exe

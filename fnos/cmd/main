@@ -1,0 +1,40 @@
+#!/bin/bash
+# ==============================================================================
+# fnOS Docker-project lifecycle script.
+#
+# For docker-project FPKs, fnOS manages `docker compose up/down` itself.
+# Therefore this script only needs to implement `status` (and may no-op start/stop).
+#
+# Return codes (mandated by fnOS):
+#   0  = running
+#   3  = not running
+#   any other non-zero = error
+# ==============================================================================
+
+set -u
+
+CONTAINER_NAME="dsh-harness"
+
+case "${1:-}" in
+  start)
+    # fnOS brings the compose stack up automatically. Nothing to do here.
+    exit 0
+    ;;
+  stop)
+    # fnOS brings the compose stack down automatically.
+    exit 0
+    ;;
+  status)
+    if docker ps --filter "name=^${CONTAINER_NAME}$" --filter "status=running" \
+         --format '{{.Names}}' | grep -qx "${CONTAINER_NAME}"; then
+      exit 0
+    else
+      exit 3
+    fi
+    ;;
+  *)
+    # Unknown verb — report so the store does not hang.
+    echo "unsupported verb: ${1:-<none>}" >> "${TRIM_TEMP_LOGFILE:-/dev/null}"
+    exit 1
+    ;;
+esac

@@ -1,0 +1,31 @@
+# Compose file for the fnOS Docker-project FPK.
+# fnOS manages `docker compose up/down`; this file just declares the stack.
+#
+# Paths MUST use the TRIM_* variables fnOS injects — never hard-code.
+#   TRIM_PKGVAR  -> per-package persistent data (survives upgrade/uninstall)
+#   TRIM_PKGHOME -> home dir for the package
+
+services:
+  dsh:
+    image: dsh-harness:0.1.0-rc.8
+    container_name: dsh-harness
+    restart: unless-stopped
+    ports:
+      - "${TRIM_SERVICE_PORT:-3080}:3080"
+    environment:
+      DSH_HOME: /data
+    env_file:
+      - path: ${TRIM_PKGVAR}/.env
+        required: true
+    volumes:
+      - ${TRIM_PKGVAR}/dsh-data:/data
+    # DSH sandbox uses landlock on Linux; inside Docker this may be unavailable.
+    # Keep the container unprivileged; if a profile needs the sandbox, the
+    # image ships a graceful degrade path. Forcing privileged:true would break
+    # the store's security review.
+    security_opt:
+      - no-new-privileges:true
+
+# NOTE: the image `dsh-harness:0.1.0-rc.8` must be loaded into fnOS's Docker
+# beforehand (push to a registry the NAS can reach, or pre-load via
+# `docker load` during a one-time setup). See README in this repo.
