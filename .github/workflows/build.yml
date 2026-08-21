@@ -30,7 +30,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: false
           tags: dsh-harness:${{ env.DSH_VERSION }}
-          outputs: type=docker,dest=dsh-harness-${{ env.DSH_VERSION }}.tar
+          outputs: type=oci,dest=dsh-harness-${{ env.DSH_VERSION }}.tar
       - uses: actions/upload-artifact@v4
         with:
           name: dsh-image-tar
@@ -89,6 +89,8 @@ jobs:
       - name: pnpm install (npmmirror)
         working-directory: dsh-src
         run: pnpm install --config.confirmModulesPurge=false
+        env:
+          npm_config_registry: ${{ env.NPM_MIRROR }}
       - name: Copy DSH (built node_modules + src) into Electron resources
         run: |
           New-Item -ItemType Directory -Force -Path packages/win-electron/resources/dsh | Out-Null
@@ -106,9 +108,21 @@ jobs:
       - name: Build portable exe
         working-directory: packages/win-electron
         run: |
-          npm install
+          npm install --registry=${{ env.NPM_MIRROR }}
           npm run dist:portable
+        env:
+          npm_config_registry: ${{ env.NPM_MIRROR }}
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: dsh-windows-exe
           path: packages/win-electron/dist/*.exe
+      - name: Upload windows build logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build-diag
+          path: |
+            dsh-src/pnpm-debug.log
+            packages/win-electron/*.log
+            packages/win-electron/dist/
