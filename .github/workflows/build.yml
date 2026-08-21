@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 env:
-  DSH_VERSION: 0.1.0-rc.8          # pin the upstream tag/commit (DSH is preview, APIs churn)
+  DSH_VERSION: dsh-v0.1.0-rc.8      # pin the upstream tag (note the dsh-v prefix)
   DSH_REPO: deepseek-ai/deepseek-harness
   NPM_MIRROR: https://registry.npmmirror.com/
 
